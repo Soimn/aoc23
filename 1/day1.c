@@ -1,10 +1,18 @@
 #include "../aoc.h"
 
+#include <windows.h>
+
 int
 main(int argc, char** argv)
 {
 	String original_input = {0};
 	if (!ReadInputAligned(argc, argv, &original_input, 32)) return 0;
+
+	LARGE_INTEGER freq;
+	QueryPerformanceFrequency(&freq);
+
+	LARGE_INTEGER start_time;
+	QueryPerformanceCounter(&start_time);
 
 	String input = original_input;
 #if 1
@@ -77,9 +85,14 @@ main(int argc, char** argv)
 	}
 #endif
 
-	printf("Part 1: %llu\n", result);
+	LARGE_INTEGER end_time;
+	QueryPerformanceCounter(&end_time);
 
-#if 1
+	f32 us = (f32)((end_time.QuadPart - start_time.QuadPart)*1000000)/freq.QuadPart;
+
+	printf("Part 1: %llu in %f us\n", result, us);
+
+#if 0
 	input  = original_input;
 	result = 0;
 	while (input.size != 0)

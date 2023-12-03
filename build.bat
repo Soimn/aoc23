@@ -39,6 +39,7 @@ cl /nologo %opt_options% /W3 day%day_num%.c /link /subsystem:console /opt:icf /o
 if %errorlevel% neq 0 goto end
 
 day%day_num%.exe %input_file%
+if %errorlevel% neq 0 echo process returned %errorlevel%
 
 :end
 endlocal
