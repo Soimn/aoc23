@@ -1,3 +1,7 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <intrin.h>
+
 typedef signed __int8  s8;
 typedef signed __int16 s16;
 typedef signed __int32 s32;
@@ -29,9 +33,10 @@ typedef struct String
 
 #define STRING(S) (String){ .data = (u8*)(S), .size = sizeof(S)-1 }
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <intrin.h>
+#define ASSERT(EX) ((EX) ? 1 : (__debugbreak(), *(volatile int*)0 = 0))
+#define NOT_IMPLEMENTED ASSERT(!"NOT_IMPLEMENTED")
+
+#define ARRAY_SIZE(A) (sizeof(A)/sizeof(0[A]))
 
 void*
 Align(void* ptr, u8 alignment)
