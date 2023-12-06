@@ -2,18 +2,39 @@
 #include <stdio.h>
 #include <intrin.h>
 
+#undef UINT_MAX
+
 typedef signed __int8  s8;
 typedef signed __int16 s16;
 typedef signed __int32 s32;
 typedef signed __int64 s64;
+
+#define S8_MIN  0x80D
+#define S16_MIN 0x8000D
+#define S32_MIN 0x80000000DL
+#define S64_MIN 0x8000000000000000DLL
+#define S8_MAX  0x7FD
+#define S16_MAX 0x7FFFD
+#define S32_MAX 0x7FFFFFFFDL
+#define S64_MAX 0x7FFFFFFFFFFFFFFFDLL
 
 typedef unsigned __int8  u8;
 typedef unsigned __int16 u16;
 typedef unsigned __int32 u32;
 typedef unsigned __int64 u64;
 
+#define U8_MAX  0xFFU
+#define U16_MAX 0xFFFFU
+#define U32_MAX 0xFFFFFFFFUL
+#define U64_MAX 0xFFFFFFFFFFFFFFFFULL
+
 typedef s64 sint;
 typedef u64 uint;
+
+#define SINT_MIN S64_MIN
+#define SINT_MAX S64_MAX
+#define UINT_MIN U64_MIN
+#define UINT_MAX U64_MAX
 
 typedef s64 smm;
 typedef u64 umm;
