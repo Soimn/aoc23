@@ -45,7 +45,7 @@ main(int argc, char** argv)
 	for (uint i = 0; i < race_count; ++i)
 	{
 		float td2 = times[i]/2.0f;
-		float dev = sqrtf(td2*td2 - distances[i] - 0.1f);
+		float dev = sqrtf(td2*td2 - distances[i] - 1);
 		
 		uint max = (uint)(td2+dev);
 		uint min = (uint)(ceilf(td2-dev));
@@ -82,15 +82,15 @@ main(int argc, char** argv)
 	}
 
 	float td2 = time/2.0f;
-	float dev = sqrtf(td2*td2 - distance - 0.1f);
+	float dev = sqrtf(td2*td2 - distance - 1);
 	
-		uint max = (uint)(td2+dev);
-		uint min = (uint)(ceilf(td2-dev));
+	uint max = (uint)(td2+dev);
+	uint min = (uint)(ceilf(td2-dev));
 
-		while (max*(time - max) <= distance) --max;
-		while (min*(time - min) <= distance) ++min;
+	while (max*(time - max) <= distance) --max;
+	while (min*(time - min) <= distance) ++min;
 
-		uint part2_result = max - min + 1;
+	uint part2_result = max - min + 1;
 
 	printf("Part 1: %llu\n", part1_result);
 	printf("Part 2: %llu\n", part2_result);
