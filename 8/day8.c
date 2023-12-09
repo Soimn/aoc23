@@ -13,6 +13,49 @@ uint32_t hash( uint32_t a)
     return a;
 }
 
+// from Knuth Seminumerical Algorithms
+uint
+gcd(uint u, uint v)
+{
+	while (v != 0)
+	{
+		uint r = u % v;
+		u = v;
+		v = r;
+	}
+
+	return u;
+}
+
+uint
+gcdn(uint* us, uint size)
+{
+	uint d = us[size-1];
+	uint k = size-2;
+
+	while (d != 1 && k > 0)
+	{
+		d = gcd(us[k], d);
+		--k;
+	}
+
+	return d;
+}
+
+uint
+lcm(uint u, uint v)
+{
+	return (v*u)/gcd(u, v);
+}
+
+uint
+lcmn(uint* us, uint size)
+{
+	uint result = us[0];
+	for (uint i = 1; i < size; ++i) result = lcm(result, us[i]);
+	return result;
+}
+
 int
 main(int argc, char** argv)
 {
@@ -29,6 +72,11 @@ main(int argc, char** argv)
 
 	sint start_node_idx = -1;
 	sint end_node_idx   = -1;
+
+	uint start_node_idxs[6];
+	uint start_node_idx_count = 0;
+	uint end_node_idxs[6];
+	uint end_node_idx_count = 0;
 
 	uint i = 0;
 
@@ -47,6 +95,9 @@ main(int argc, char** argv)
 
 		if      (node == 0x414141) start_node_idx = node_count;
 		else if (node == 0x5A5A5A) end_node_idx   = node_count;
+
+		if      (node >> 16 == 'A') start_node_idxs[start_node_idx_count++] = node_count;
+		else if (node >> 16 == 'Z') end_node_idxs[end_node_idx_count++]     = node_count;
 
 		uint node_lut_idx = hash(node) % ARRAY_SIZE(node_lut);
 		uint j = 0;
@@ -91,18 +142,73 @@ main(int argc, char** argv)
 		nodes[j][1] = right_idx;
 	}
 
-	ASSERT(start_node_idx != -1);
-	ASSERT(end_node_idx != -1);
-
 	uint part1_result = 0;
-	for (u32 node_idx = (u32)start_node_idx; node_idx != (u32)end_node_idx; ++part1_result)
+	if (start_node_idx != -1 && end_node_idx != -1)
 	{
-		uint step_idx = part1_result % direction_count;
-		uint step     = !!(directions[step_idx >> 6] & (1ULL << (step_idx & 63)));
-		node_idx = nodes[node_idx][step];
+		for (u32 node_idx = (u32)start_node_idx; node_idx != (u32)end_node_idx; ++part1_result)
+		{
+			uint step_idx = part1_result % direction_count;
+			uint step     = !!(directions[step_idx >> 6] & (1ULL << (step_idx & 63)));
+			node_idx = nodes[node_idx][step];
+		}
 	}
 
-	printf("Part 1: %llu\n", part1_result);
+	uint cycle_scan[6][10] = {0};
+	uint cycle_scan_size[6] = {0};
+	uint cycle_scan_count = 0;
+
+	uint scan_nodes[6];
+	uint scan_node_count = start_node_idx_count;
+	for (uint j = 0; j < scan_node_count; ++j) scan_nodes[j] = start_node_idxs[j];
+
+	uint part2_result = 0;
+	uint ends = 0;
+	for (; ends < end_node_idx_count && cycle_scan_count != 6; ++part2_result)
+	{
+		ends = 0;
+
+		uint step_idx = part2_result % direction_count;
+		uint step     = !!(directions[step_idx >> 6] & (1ULL << (step_idx & 63)));
+
+		for (uint j = 0; j < scan_node_count; ++j)
+		{
+			scan_nodes[j] = nodes[scan_nodes[j]][step];
+
+			for (uint k = 0; k < end_node_idx_count; ++k)
+			{
+				if (scan_nodes[j] == end_node_idxs[k])
+				{
+					if (cycle_scan_size[j] < ARRAY_SIZE(cycle_scan[j]))
+					{
+						cycle_scan[j][cycle_scan_size[j]++] = part2_result;
+						cycle_scan_count += (cycle_scan_size[j] == ARRAY_SIZE(cycle_scan[0]));
+					}
+					++ends;
+					break;
+				}
+			}
+		}
+	}
+
+	if (ends != scan_node_count)
+	{
+		uint cycle_lens[ARRAY_SIZE(cycle_scan)];
+		for (uint k = 0; k < ARRAY_SIZE(cycle_scan); ++k)
+		{
+			for (uint j = ARRAY_SIZE(cycle_scan[0])-1; j > 0; --j)
+			{
+				cycle_scan[k][j] -= cycle_scan[k][j-1];
+			}
+
+			cycle_lens[k] = cycle_scan[k][ARRAY_SIZE(cycle_scan[k])-1];
+		}
+
+		part2_result = lcmn(cycle_lens, ARRAY_SIZE(cycle_lens));
+	}
+
+	if (part1_result == 0) printf("Part 1: ---\n");
+	else                   printf("Part 1: %llu\n", part1_result);
+	printf("Part 2: %llu\n", part2_result);
 
 	return 0;
 }
