@@ -9,13 +9,13 @@ typedef signed __int16 s16;
 typedef signed __int32 s32;
 typedef signed __int64 s64;
 
-#define S8_MIN  0x80D
-#define S16_MIN 0x8000D
-#define S32_MIN 0x80000000DL
+#define S8_MIN  0x80
+#define S16_MIN 0x8000
+#define S32_MIN 0x80000000
 #define S64_MIN 0x8000000000000000DLL
-#define S8_MAX  0x7FD
-#define S16_MAX 0x7FFFD
-#define S32_MAX 0x7FFFFFFFDL
+#define S8_MAX  0x7F
+#define S16_MAX 0x7FFF
+#define S32_MAX 0x7FFFFFFF
 #define S64_MAX 0x7FFFFFFFFFFFFFFFDLL
 
 typedef unsigned __int8  u8;
@@ -23,9 +23,9 @@ typedef unsigned __int16 u16;
 typedef unsigned __int32 u32;
 typedef unsigned __int64 u64;
 
-#define U8_MAX  0xFFU
-#define U16_MAX 0xFFFFU
-#define U32_MAX 0xFFFFFFFFUL
+#define U8_MAX  0xFF
+#define U16_MAX 0xFFFF
+#define U32_MAX 0xFFFFFFFF
 #define U64_MAX 0xFFFFFFFFFFFFFFFFULL
 
 typedef s64 sint;
@@ -112,4 +112,47 @@ bool
 ReadInput(int argc, char** argv, String* input)
 {
 	return ReadInputAligned(argc, argv, input, 1);
+}
+
+sint
+AbsS(sint n)
+{
+  return (n < 0 ? -n : n);
+}
+
+sint
+MinS(sint a, sint b)
+{
+  return (a < b ? a : b);
+}
+
+sint
+MaxS(sint a, sint b)
+{
+  return (a > b ? a : b);
+}
+
+typedef struct V2S
+{
+  sint x, y;
+} V2S;
+
+#define V2S(X, Y) (V2S){ .x = (X), .y = (Y) }
+
+V2S
+V2S_Add(V2S v0, V2S v1)
+{
+  return V2S(v0.x + v1.x, v0.y + v1.y);
+}
+
+V2S
+V2S_Sub(V2S v0, V2S v1)
+{
+  return V2S(v0.x - v1.x, v0.y - v1.y);
+}
+
+sint
+V2S_ManhattanLength(V2S v)
+{
+  return AbsS(v.x) + AbsS(v.y);
 }
