@@ -142,9 +142,10 @@ MaxS(sint a, sint b)
   return (a > b ? a : b);
 }
 
-typedef struct V2S
+typedef union V2S
 {
-  sint x, y;
+  struct { sint x, y; };
+  sint e[2];
 } V2S;
 
 #define V2S(X, Y) (V2S){ .x = (X), .y = (Y) }
@@ -159,6 +160,12 @@ V2S
 V2S_Sub(V2S v0, V2S v1)
 {
   return V2S(v0.x - v1.x, v0.y - v1.y);
+}
+
+V2S
+V2S_Neg(V2S v)
+{
+  return V2S(-v.x, -v.y);
 }
 
 sint
