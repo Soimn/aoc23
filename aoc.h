@@ -54,6 +54,16 @@ typedef struct String
 
 #define STRING(S) (String){ .data = (u8*)(S), .size = sizeof(S)-1 }
 
+bool
+String_Match(String s0, String s1)
+{
+  bool result = (s0.size == s1.size);
+
+  for (umm i = 0; i < s0.size && result; ++i) result = (s0.data[i] == s1.data[i]);
+
+  return result;
+}
+
 #define ASSERT(EX) ((EX) ? 1 : (__debugbreak(), *(volatile int*)0 = 0))
 #define NOT_IMPLEMENTED ASSERT(!"NOT_IMPLEMENTED")
 
