@@ -35,11 +35,24 @@ if "%4" neq "" (
 	goto end
 )
 
-cl /nologo %opt_options% /W3 day%day_num%.c /link /subsystem:console /opt:icf /opt:ref /incremental:no /pdb:day%day_num%.pdb /out:day%day_num%.exe
-if %errorlevel% neq 0 goto end
+if %day_num% lss 17 (
+  cl /nologo %opt_options% /W3 day%day_num%.c /link /subsystem:console /opt:icf /opt:ref /incremental:no /pdb:day%day_num%.pdb /out:day%day_num%.exe
+) else (
+  set "warnings=-Wall -Wextra -Wshadow -Wconversion -Wnull-dereference -Wdouble-promotion -Wformat=2"
 
+  set "ignored_warnings=-Wno-unused-parameter"
+
+  clang %warnings% %ignored_warnings% -std=gnu11 -o day%day_num%.exe day%day_num%.c
+)
+
+if %errorlevel% neq 0 goto end
 day%day_num%.exe %input_file%
 if %errorlevel% neq 0 echo process returned %errorlevel%
+
+:end
+endlocal
+
+
 
 :end
 endlocal
