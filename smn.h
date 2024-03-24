@@ -137,6 +137,8 @@ void** SB__Resize(void** sbuf, umm elem_size, u8 elem_align, umm new_len);
     SB__Header(S)->len -= 1;        \
 })
 
+#define SB_Free(S) ({ (void)**(S); free((u8*)*(S) - sizeof(SB__Header)); *(S) = 0; })
+
 #ifdef SMN_IMPLEMENTATION
 
 void
@@ -154,6 +156,8 @@ AssertHandler(char* file, uint line, char* expr, char* msg, ...)
     putc('\n', stderr);
   }
   va_end(args);
+
+  __debugbreak();
 }
 
 bool

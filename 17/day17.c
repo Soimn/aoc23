@@ -31,9 +31,7 @@ typedef struct Node
 {
   s8 path_dir;
   u8 weight;
-  s8 dir;
-  s8 alt_dir;
-  Node_Pred preds[4];
+  Node_Pred preds[4*10];
 } Node;
 
 typedef struct Edge
@@ -118,6 +116,150 @@ EdgeQueue_Dequeue(Edge_Queue* queue)
   return dequeued_entry;
 }
 
+u32
+Solve(String input, u8 min_step, u8 max_step, bool should_print)
+{
+  uint width = 0;
+  while (width < input.size && input.data[width] != '\r') ++width;
+  uint height = input.size / (width+2);
+
+  Node* nodes = malloc(width*height*sizeof(Node));
+
+  for (uint j = 0; j < height; ++j)
+  {
+    for (uint i = 0; i < width; ++i)
+    {
+      nodes[j*width + i] = (Node){
+        .path_dir = -1,
+        .weight   = input.data[j*(width+2) + i]&0xF,
+      };
+
+      for (uint k = 0; k < ARRAY_SIZE(nodes[0].preds); ++k) nodes[j*width + i].preds[k].dist = U32_MAX;
+    }
+  }
+
+  Edge_Queue queue = {0};
+
+  EdgeQueue_Enqueue(&queue, (Edge){
+      .key        = nodes[1].weight,
+      .start_node = 0,
+      .end_node   = 1,
+      .dir        = Dir_E,
+      .ttl        = max_step-1
+  });
+  EdgeQueue_Enqueue(&queue, (Edge){
+      .key        = nodes[width].weight,
+      .start_node = 0,
+      .end_node   = width,
+      .dir        = Dir_N,
+      .ttl        = max_step-1
+  });
+
+  u32 goal_node = width*height-1;
+  s8 goal_ttl   = -1;
+  while (goal_ttl == -1)
+  {
+    Edge edge = EdgeQueue_Dequeue(&queue);
+
+    if (nodes[edge.end_node].preds[edge.dir*10 + edge.ttl].dist == U32_MAX)
+    {
+      u8 insert_idx = edge.dir*10 + edge.ttl;
+
+      nodes[edge.end_node].preds[insert_idx] = (Node_Pred){
+        .dist      = edge.key,
+        .prev_node = edge.start_node,
+        .pred_idx  = edge.pred_idx,
+        .dir       = edge.dir,
+        .ttl       = edge.ttl,
+      };
+
+      for (u8 i = 0; i < DIRECTION_COUNT; ++i)
+      {
+        s8 dx  = X_STEP(i);
+        s8 dy  = Y_STEP(i);
+        s8 ttl = (s8)(i == edge.dir ? edge.ttl-1 : max_step-1);
+
+        smm dx_rest_step = dx*(i == edge.dir ? 1 : min_step);
+        smm dy_rest_step = dy*(i == edge.dir ? 1 : min_step);
+        if (ttl >= 0                         &&
+            (i == edge.dir || edge.ttl <= 6) &&
+            i != OPPOSITE_DIR(edge.dir))
+        {
+          if (!((smm)(edge.end_node % width) >= -dx_rest_step          &&
+             (smm)(edge.end_node % width) < (smm)width - dx_rest_step &&
+             (smm)(edge.end_node / width) >= -dy_rest_step            &&
+             (smm)(edge.end_node / width) < (smm)height - dy_rest_step))
+          {
+            volatile int a = 0;
+          }
+          else
+          {
+          u32 end_node = edge.end_node + dy*width + dx;
+          u32 dist     = edge.key + nodes[end_node].weight;
+          
+          if (end_node == goal_node)
+          {
+            nodes[end_node].preds[ttl] = (Node_Pred){
+              .dist      = dist,
+              .prev_node = edge.end_node,
+              .pred_idx  = insert_idx,
+              .dir       = i,
+              .ttl       = ttl,
+            };
+
+            goal_ttl = ttl;
+
+            break;
+          }
+          else if (nodes[end_node].preds[i*10 + ttl].dist == U32_MAX)
+          {
+            EdgeQueue_Enqueue(&queue, (Edge){
+                .key        = dist,
+                .start_node = edge.end_node,
+                .end_node   = end_node,
+                .pred_idx   = insert_idx,
+                .dir        = i,
+                .ttl        = ttl,
+            });
+          }
+          }
+        }
+      }
+    }
+  }
+
+  for (u32 node = goal_node, pred = goal_ttl; node != 0;)
+  {
+    nodes[node].path_dir = nodes[node].preds[pred].dir;
+
+    u32 prev_node = nodes[node].preds[pred].prev_node;
+    u32 prev_pred = nodes[node].preds[pred].pred_idx;
+
+    node = prev_node;
+    pred = prev_pred;
+  }
+
+  if (should_print)
+  {
+    for (uint j = 0; j < height; ++j)
+    {
+      for (uint i = 0; i < width; ++i)
+      {
+        Node* node = &nodes[j*width + i];
+        putchar(node->path_dir == -1 ? '0'+node->weight : (u8[4]){'v', '>', '^', '<'}[node->path_dir]);
+      }
+      putchar('\n');
+    }
+  }
+
+  u32 result = nodes[goal_node].preds[goal_ttl].dist;
+
+  free(nodes);
+  SB_Free(&queue.backing);
+
+ return result;
+}
+
 int
 main(int argc, char** argv)
 {
@@ -142,151 +284,10 @@ main(int argc, char** argv)
 
     fclose(file);
   }
-
-  uint size = 0;
-  while (size < input.size && input.data[size] != '\r') ++size;
-  ASSERT(size > 0 && input.size/(size+2) == size);
-
-  Node* nodes = malloc(size*size*sizeof(Node));
-
-  for (uint j = 0; j < size; ++j)
-  {
-    for (uint i = 0; i < size; ++i)
-    {
-      nodes[j*size + i] = (Node){
-        .path_dir = -1,
-        .weight   = input.data[j*(size+2) + i]&0xF,
-        .dir      = -1,
-        .alt_dir  = -1,
-        .preds    = {
-          [0] = { .dist = U32_MAX },
-          [1] = { .dist = U32_MAX },
-          [2] = { .dist = U32_MAX },
-          [3] = { .dist = U32_MAX },
-        },
-      };
-    }
-  }
-
-  Edge_Queue queue = {0};
-
-  EdgeQueue_Enqueue(&queue, (Edge){
-      .key        = nodes[1].weight,
-      .start_node = 0,
-      .end_node   = 1,
-      .dir        = Dir_E,
-      .ttl        = 2
-  });
-  EdgeQueue_Enqueue(&queue, (Edge){
-      .key        = nodes[size].weight,
-      .start_node = 0,
-      .end_node   = size,
-      .dir        = Dir_N,
-      .ttl        = 2
-  });
-
-  u32 goal_node = size*size-1;
-  s8 goal_ttl   = -1;
-  while (nodes[goal_node].dir == -1)
-  {
-    Edge edge = EdgeQueue_Dequeue(&queue);
-
-    if (nodes[edge.end_node].dir == -1                                             ||
-        edge.dir != nodes[edge.end_node].dir && nodes[edge.end_node].alt_dir == -1 ||
-        edge.dir == nodes[edge.end_node].dir && (nodes[edge.end_node].preds[edge.ttl].dist == U32_MAX &&
-                                                edge.key < nodes[edge.end_node].preds[edge.ttl+1].dist))
-    {
-      u8 insert_idx;
-      if (nodes[edge.end_node].dir == -1 || nodes[edge.end_node].dir == edge.dir)
-      {
-        nodes[edge.end_node].dir = edge.dir;
-        insert_idx = edge.ttl;
-      }
-      else
-      {
-        nodes[edge.end_node].alt_dir = edge.dir;
-        insert_idx = 3;
-      }
-
-      nodes[edge.end_node].preds[insert_idx] = (Node_Pred){
-        .dist      = edge.key,
-        .prev_node = edge.start_node,
-        .pred_idx  = edge.pred_idx,
-        .dir       = edge.dir,
-        .ttl       = edge.ttl,
-      };
-
-      for (u8 i = 0; i < DIRECTION_COUNT; ++i)
-      {
-        s8 dx  = X_STEP(i);
-        s8 dy  = Y_STEP(i);
-        s8 ttl = (s8)(i == edge.dir ? edge.ttl-1 : 2);
-
-        if (ttl >= 0                     &&
-            i != OPPOSITE_DIR(edge.dir) &&
-            !(edge.end_node % size == 0      && dx == -1 ||
-              edge.end_node % size == size-1 && dx ==  1 ||
-              edge.end_node / size == 0      && dy == -1 ||
-              edge.end_node / size == size-1 && dy ==  1))
-        {
-          u32 end_node = edge.end_node + dy*size + dx;
-          u32 dist     = edge.key + nodes[end_node].weight;
-          
-          if (end_node == goal_node)
-          {
-            nodes[end_node].dir = i;
-            nodes[end_node].preds[ttl] = (Node_Pred){
-              .dist      = dist,
-              .prev_node = edge.end_node,
-              .pred_idx  = insert_idx,
-              .dir       = i,
-              .ttl       = ttl,
-            };
-
-            goal_ttl = ttl;
-
-            break;
-          }
-          else if (nodes[end_node].dir == -1                            ||
-              i != nodes[end_node].dir && nodes[end_node].alt_dir == -1 ||
-              i == nodes[end_node].dir && nodes[end_node].preds[ttl].dist == U32_MAX)
-          {
-            EdgeQueue_Enqueue(&queue, (Edge){
-                .key        = dist,
-                .start_node = edge.end_node,
-                .end_node   = end_node,
-                .pred_idx   = insert_idx,
-                .dir        = i,
-                .ttl        = ttl,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  for (u32 node = goal_node, pred = goal_ttl; node != 0;)
-  {
-    nodes[node].path_dir = nodes[node].preds[pred].dir;
-
-    u32 prev_node = nodes[node].preds[pred].prev_node;
-    u32 prev_pred = nodes[node].preds[pred].pred_idx;
-
-    node = prev_node;
-    pred = prev_pred;
-  }
-
-  for (uint j = 0; j < size; ++j)
-  {
-    for (uint i = 0; i < size; ++i)
-    {
-      Node* node = &nodes[j*size + i];
-      putchar(node->path_dir == -1 ? '0'+node->weight : (u8[4]){'v', '>', '^', '<'}[node->path_dir]);
-    }
-    putchar('\n');
-  }
-
-  printf("Part 1: %u\n", nodes[goal_node].preds[goal_ttl].dist);
+  u32 part1_result = Solve(input, 1, 3, false);
+  u32 part2_result = Solve(input, 4, 10, true);
+  printf("Part 1: %u\n", part1_result);
+  printf("Part 2: %u\n", part2_result);
 
   return 0;
 }
