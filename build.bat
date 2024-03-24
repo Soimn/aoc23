@@ -42,7 +42,11 @@ if %day_num% lss 17 (
 
   set "ignored_warnings=-Wno-unused-parameter"
 
-  clang %warnings% %ignored_warnings% -std=gnu11 -o day%day_num%.exe day%day_num%.c
+  REM set "debug= -Og -fuse-ld=lld.exe -g -gcodeview -Wl,/debug,/pdb:day%day_num%.pdb"
+
+  REM clang -target x86_64-pc-windows-msvc %debug% %warnings% %ignored_warnings% -std=gnu11 -o day%day_num%.exe day%day_num%.c
+  
+  clang-cl /Zo /Z7 /Od /Oi %warnings% %ignored_warnings% day%day_num%.c /link /subsystem:console /opt:icf /opt:ref /incremental:no /pdb:day%day_num%.pdb /out:day%day_num%.exe
 )
 
 if %errorlevel% neq 0 goto end

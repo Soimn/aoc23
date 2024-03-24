@@ -21,7 +21,8 @@ enum Direction
 typedef struct Node_Pred
 {
   u32 dist;
-  u8 prev_dir;
+  u32 prev_node;
+  u8 pred_idx;
   u8 dir;
   u8 ttl;
 } Node_Pred;
@@ -38,8 +39,9 @@ typedef struct Node
 typedef struct Edge
 {
   u32 key;
+  u32 start_node;
   u32 end_node;
-  u8 prev_dir;
+  u8 pred_idx;
   u8 dir;
   u8 ttl;
 } Edge;
@@ -168,8 +170,20 @@ main(int argc, char** argv)
 
   Edge_Queue queue = {0};
 
-  EdgeQueue_Enqueue(&queue, (Edge){ .key = nodes[1].weight,    .end_node = 1,    .dir = Dir_E, .ttl = 2 });
-  EdgeQueue_Enqueue(&queue, (Edge){ .key = nodes[size].weight, .end_node = size, .dir = Dir_N, .ttl = 2 });
+  EdgeQueue_Enqueue(&queue, (Edge){
+      .key        = nodes[1].weight,
+      .start_node = 0,
+      .end_node   = 1,
+      .dir        = Dir_E,
+      .ttl        = 2
+  });
+  EdgeQueue_Enqueue(&queue, (Edge){
+      .key        = nodes[size].weight,
+      .start_node = 0,
+      .end_node   = size,
+      .dir        = Dir_N,
+      .ttl        = 2
+  });
 
   u32 goal_node = size*size-1;
   s8 goal_ttl   = -1;
@@ -182,34 +196,33 @@ main(int argc, char** argv)
         edge.dir == nodes[edge.end_node].dir && (nodes[edge.end_node].preds[edge.ttl].dist == U32_MAX &&
                                                 edge.key < nodes[edge.end_node].preds[edge.ttl+1].dist))
     {
+      u8 insert_idx;
       if (nodes[edge.end_node].dir == -1 || nodes[edge.end_node].dir == edge.dir)
       {
         nodes[edge.end_node].dir = edge.dir;
-        nodes[edge.end_node].preds[edge.ttl] = (Node_Pred){
-          .dist     = edge.key,
-          .prev_dir = edge.prev_dir,
-          .dir      = edge.dir,
-          .ttl      = edge.ttl,
-        };
+        insert_idx = edge.ttl;
       }
       else
       {
         nodes[edge.end_node].alt_dir = edge.dir;
-        nodes[edge.end_node].preds[3] = (Node_Pred){
-          .dist     = edge.key,
-          .prev_dir = edge.prev_dir,
-          .dir      = edge.dir,
-          .ttl      = edge.ttl,
-        };
+        insert_idx = 3;
       }
+
+      nodes[edge.end_node].preds[insert_idx] = (Node_Pred){
+        .dist      = edge.key,
+        .prev_node = edge.start_node,
+        .pred_idx  = edge.pred_idx,
+        .dir       = edge.dir,
+        .ttl       = edge.ttl,
+      };
 
       for (u8 i = 0; i < DIRECTION_COUNT; ++i)
       {
         s8 dx  = X_STEP(i);
         s8 dy  = Y_STEP(i);
-        s8 ttl = (s8)(i == edge.dir ? 2 : edge.ttl-1);
+        s8 ttl = (s8)(i == edge.dir ? edge.ttl-1 : 2);
 
-        if (ttl > 0                     &&
+        if (ttl >= 0                     &&
             i != OPPOSITE_DIR(edge.dir) &&
             !(edge.end_node % size == 0      && dx == -1 ||
               edge.end_node % size == size-1 && dx ==  1 ||
@@ -223,10 +236,11 @@ main(int argc, char** argv)
           {
             nodes[end_node].dir = i;
             nodes[end_node].preds[ttl] = (Node_Pred){
-              .dist     = dist,
-              .prev_dir = edge.dir,
-              .dir      = i,
-              .ttl      = ttl,
+              .dist      = dist,
+              .prev_node = edge.end_node,
+              .pred_idx  = insert_idx,
+              .dir       = i,
+              .ttl       = ttl,
             };
 
             goal_ttl = ttl;
@@ -238,16 +252,38 @@ main(int argc, char** argv)
               i == nodes[end_node].dir && nodes[end_node].preds[ttl].dist == U32_MAX)
           {
             EdgeQueue_Enqueue(&queue, (Edge){
-                .key      = dist,
-                .end_node = end_node,
-                .prev_dir = edge.dir,
-                .dir      = i,
-                .ttl      = ttl,
+                .key        = dist,
+                .start_node = edge.end_node,
+                .end_node   = end_node,
+                .pred_idx   = insert_idx,
+                .dir        = i,
+                .ttl        = ttl,
             });
           }
         }
       }
     }
+  }
+
+  for (u32 node = goal_node, pred = goal_ttl; node != 0;)
+  {
+    nodes[node].path_dir = nodes[node].preds[pred].dir;
+
+    u32 prev_node = nodes[node].preds[pred].prev_node;
+    u32 prev_pred = nodes[node].preds[pred].pred_idx;
+
+    node = prev_node;
+    pred = prev_pred;
+  }
+
+  for (uint j = 0; j < size; ++j)
+  {
+    for (uint i = 0; i < size; ++i)
+    {
+      Node* node = &nodes[j*size + i];
+      putchar(node->path_dir == -1 ? '0'+node->weight : (u8[4]){'v', '>', '^', '<'}[node->path_dir]);
+    }
+    putchar('\n');
   }
 
   printf("Part 1: %u\n", nodes[goal_node].preds[goal_ttl].dist);
