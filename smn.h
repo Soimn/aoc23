@@ -1,35 +1,50 @@
 #ifndef SMN_HEADER
 #define SMN_HEADER
 
+#if defined(SMN_INLINE_IMPLEMENTATION) && !defined(SMN_IMPLEMENTATION)
+#define SMN_IMPLEMENTATION
+#endif
+
+#ifdef SMN_INLINE_IMPLEMENTATION
+#define SMN_INLINE inline
+#else
+#define SMN_INLINE
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 
-typedef signed __int8  s8;
-typedef signed __int16 s16;
-typedef signed __int32 s32;
-typedef signed __int64 s64;
+typedef signed __int8   s8;
+typedef signed __int16  s16;
+typedef signed __int32  s32;
+typedef signed __int64  s64;
+typedef signed __int128 s128;
 
-#define S8_MIN  ((s8) 0x80)
-#define S16_MIN ((s16)0x8000)
-#define S32_MIN ((s32)0x80000000)
-#define S64_MIN ((s64)0x8000000000000000DLL)
+#define S8_MIN   ((s8)  ((~(u8)  0 >> 1) + 1)
+#define S16_MIN  ((s16) ((~(u16) 0 >> 1) + 1)
+#define S32_MIN  ((s32) ((~(u32) 0 >> 1) + 1)
+#define S64_MIN  ((s64) ((~(u64) 0 >> 1) + 1)
+#define S128_MIN ((s128)((~(u128)0 >> 1) + 1)
 
-#define S8_MAX  ((s8) 0x7F)
-#define S16_MAX ((s16)0x7FFF)
-#define S32_MAX ((s32)0x7FFFFFFF)
-#define S64_MAX ((s64)0x7FFFFFFFFFFFFFFFDLL)
+#define S8_MAX   ((s8)  (~(u8)  0 >> 1))
+#define S16_MAX  ((s16) (~(u16) 0 >> 1))
+#define S32_MAX  ((s32) (~(u32) 0 >> 1))
+#define S64_MAX  ((s64) (~(u64) 0 >> 1))
+#define S128_MAX ((s128)(~(u128)0 >> 1))
 
-typedef unsigned __int8  u8;
-typedef unsigned __int16 u16;
-typedef unsigned __int32 u32;
-typedef unsigned __int64 u64;
+typedef unsigned __int8   u8;
+typedef unsigned __int16  u16;
+typedef unsigned __int32  u32;
+typedef unsigned __int64  u64;
+typedef unsigned __int128 u128;
 
-#define U8_MAX  ((u8) 0xFF)
-#define U16_MAX ((u16)0xFFFF)
-#define U32_MAX ((u32)0xFFFFFFFF)
-#define U64_MAX ((u64)0xFFFFFFFFFFFFFFFFULL)
+#define U8_MAX   (~(u8)0)
+#define U16_MAX  (~(u16)0)
+#define U32_MAX  (~(u32)0)
+#define U64_MAX  (~(u64)0)
+#define U128_MAX (~(u128)0)
 
 typedef u32 uint;
 
@@ -68,24 +83,35 @@ void AssertHandler(char* file, uint line, char* expr, char* msg, ...);
 
 typedef struct String
 {
-	u8* data;
-	umm size;
+  u8* data;
+  umm size;
 } String;
 
 #define STRING(S) (String){ .data = (u8*)(S), .size = sizeof(S)-1 }
 
-bool Char_IsAlpha(u8 c);
-u8 Char_ToLowerUnchecked(u8 c);
-u8 Char_ToUpperUnchecked(u8 c);
-u8 Char_ToLower(u8 c);
-u8 Char_ToUpper(u8 c);
+SMN_INLINE bool Char_IsAlpha         (u8 c);
+SMN_INLINE u8   Char_ToLowerUnchecked(u8 c);
+SMN_INLINE u8   Char_ToUpperUnchecked(u8 c);
+SMN_INLINE u8   Char_ToLower         (u8 c);
+SMN_INLINE u8   Char_ToUpper         (u8 c);
+SMN_INLINE bool Char_IsWhitespace    (u8 c);
+SMN_INLINE bool Char_IsDigit         (u8 c);
+SMN_INLINE bool Char_IsHexAlphaDigit (u8 c);
 
-bool String_Match(String s0, String s1);
-bool String_MatchCaseInsensitive(String s0, String s1);
-String String_EatN(String s, umm amount);
-String String_ChopN(String s, umm amount);
-
-bool ReadEntireFileSloppy(char* filename, String* contents);
+SMN_INLINE bool   String_Match               (String s0, String s1);
+SMN_INLINE bool   String_MatchCaseInsensitive(String s0, String s1);
+SMN_INLINE String String_EatN                (String s, umm amount);
+SMN_INLINE String String_ChopN               (String s, umm amount);
+SMN_INLINE String String_EatMaxN             (String s, umm amount);
+SMN_INLINE String String_ChopMaxN            (String s, umm amount);
+SMN_INLINE String String_FirstN              (String s, umm amount);
+SMN_INLINE String String_LastN               (String s, umm amount);
+SMN_INLINE String String_FirstMaxN           (String s, umm amount);
+SMN_INLINE String String_LastMaxN            (String s, umm amount);
+SMN_INLINE String String_EatWhitespace       (String s);
+SMN_INLINE smm    String_FindFirstChar       (String s, u8 c);
+SMN_INLINE smm    String_FindLastChar        (String s, u8 c);
+SMN_INLINE umm    String_CopyToBuffer        (String s, u8* buffer, umm buffer_size);
 
 typedef struct SB__Header
 {
@@ -160,64 +186,102 @@ AssertHandler(char* file, uint line, char* expr, char* msg, ...)
   __debugbreak();
 }
 
-bool
+SMN_INLINE bool
 Char_IsAlpha(u8 c)
 {
   return ((u8)((c&0xDF)-'A') <= (u8)('Z' - 'A'));
 }
 
-u8
+SMN_INLINE u8
 Char_ToLowerUnchecked(u8 c)
 {
   return c & 0xDF;
 }
 
-u8
+SMN_INLINE u8
 Char_ToUpperUnchecked(u8 c)
 {
   return c | 0x20;
 }
 
-u8
+SMN_INLINE u8
 Char_ToLower(u8 c)
 {
   return (Char_IsAlpha(c) ? Char_ToLowerUnchecked(c) : c);
 }
 
-u8
+SMN_INLINE u8
 Char_ToUpper(u8 c)
 {
   return (Char_IsAlpha(c) ? Char_ToUpperUnchecked(c) : c);
 }
 
-bool
+SMN_INLINE bool
+Char_IsWhitespace(u8 c)
+{
+  return (c == ' ' || (u8)(c - '\t') <= (u8)('\r'-'\t'));
+}
+
+SMN_INLINE bool
+Char_IsDigit(u8 c)
+{
+  return ((u8)(c-'0') < (u8)10);
+}
+
+SMN_INLINE bool
+Char_IsHexAlphaDigit(u8 c)
+{
+  return ((u8)((c&0xDF)-'A') <= (u8)('F' - 'A'));
+}
+
+SMN_INLINE bool
 String_Match(String s0, String s1)
 {
-	bool result = (s0.size == s1.size);
+  bool result = (s0.size == s1.size);
 
-	for (umm i = 0; i < s0.size && result; ++i)
+  for (umm i = 0; i < s0.size && result; ++i)
   {
     result = (s0.data[i] == s1.data[i]);
   }
 
-	return result;
+  return result;
 }
 
-bool
+SMN_INLINE bool
 String_MatchCaseInsensitive(String s0, String s1)
 {
-	bool result = (s0.size == s1.size);
+  bool result = (s0.size == s1.size);
 
-	for (umm i = 0; i < s0.size && result; ++i)
+  for (umm i = 0; i < s0.size && result; ++i)
   {
     result = (Char_ToLower(s0.data[i]) == Char_ToLower(s1.data[i]));
   }
 
-	return result;
+  return result;
 }
 
-String
+SMN_INLINE String
 String_EatN(String s, umm amount)
+{
+  ASSERT(s.size >= amount);
+  return (String){
+    .data = s.data + amount,
+    .size = s.size - amount,
+  };
+}
+
+SMN_INLINE String
+String_ChopN(String s, umm amount)
+{
+  ASSERT(s.size >= amount);
+  return (String){
+    .data = s.data,
+    .size = s.size - amount,
+  };
+}
+
+SMN_INLINE String
+String_EatMaxN(String s, umm amount)
 {
   return (String){
     .data = s.data + amount,
@@ -225,13 +289,154 @@ String_EatN(String s, umm amount)
   };
 }
 
-String
-String_ChopN(String s, umm amount)
+SMN_INLINE String
+String_ChopMaxN(String s, umm amount)
 {
   return (String){
     .data = s.data,
     .size = MAX(s.size, amount) - amount,
   };
+}
+
+SMN_INLINE String
+String_FirstN(String s, umm amount)
+{
+  ASSERT(amount < s.size);
+  return (String){
+    .data = s.data,
+    .size = amount,
+  };
+}
+
+SMN_INLINE String
+String_LastN(String s, umm amount)
+{
+  ASSERT(amount < s.size);
+  return (String){
+    .data = s.data + (amount - s.size),
+    .size = amount,
+  };
+}
+
+SMN_INLINE String
+String_FirstMaxN(String s, umm amount)
+{
+  return (String){
+    .data = s.data,
+    .size = MIN(s.size, amount),
+  };
+}
+
+SMN_INLINE String
+String_LastMaxN(String s, umm amount)
+{
+  amount = MIN(s.size, amount);
+
+  return (String){
+    .data = s.data + (s.size - amount),
+    .size = amount,
+  };
+}
+
+SMN_INLINE String
+String_EatWhitespace(String s)
+{
+  umm i = 0;
+  while (i < s.size && Char_IsWhitespace(s.data[i])) ++i;
+
+  return String_EatN(s, i);
+}
+
+SMN_INLINE smm
+String_FindFirstChar(String s, u8 c)
+{
+  smm found_idx = -1;
+
+  for (umm i = 0; i < s.size; ++i)
+  {
+    if (s.data[i] == c)
+    {
+      found_idx = (smm)i;
+      break;
+    }
+  }
+
+  return found_idx;
+}
+
+SMN_INLINE smm
+String_FindLastChar(String s, u8 c)
+{
+  smm found_idx = -1;
+
+  for (umm i = s.size-1; i < s.size; --i)
+  {
+    if (s.data[i] == c)
+    {
+      found_idx = (smm)i;
+      break;
+    }
+  }
+
+  return found_idx;
+}
+
+SMN_INLINE umm
+String_CopyToBuffer(String s, u8* buffer, umm buffer_size)
+{
+  umm to_copy = MIN(s.size, buffer_size);
+
+  for (umm i = 0; i < to_copy; ++i) buffer[i] = s.data[i];
+
+  return to_copy;
+}
+
+SMN_INLINE String
+String_EatU64(String s, uint base, u64* out, bool* did_overflow)
+{
+  ASSERT(base >= 2 && base <= 10 || base == 16);
+
+  u64 result  = 0;
+  u8 overflow = 0;
+  umm i       = 0;
+
+  if (base == 16)
+  {
+    for (; i < s.size; ++i)
+    {
+      u8 c = s.data[i];
+      umm digit;
+
+      if      (Char_IsDigit(c))         digit = c&0xF;
+      else if (Char_IsHexAlphaDigit(c)) digit = (c&0x1F) + 9;
+      else                              break;
+
+      overflow |= result >> 60;
+      result    = (result << 4) | digit;
+    }
+  }
+  else
+  {
+    for (; i < s.size; ++i)
+    {
+      u8 c = s.data[i];
+      umm digit;
+
+      if (Char_IsDigit(c) && c < '0'+base) digit = c&0xF;
+      else                                 break;
+      
+      overflow |= (result > U64_MAX/base);
+      result *= base;
+      overflow |= (U64_MAX - result < digit);
+      result += digit;
+    }
+  }
+
+  *out = result;
+
+  if (did_overflow != 0) *did_overflow = (overflow != 0);
+
+  return String_EatN(s, i);
 }
 
 void**

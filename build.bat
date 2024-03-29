@@ -22,11 +22,14 @@ if "%2"=="" (
 	set "input_file=%~n2.txt"
 )
 
+set "should_time=0"
 set "opt_options=/O2 /Oi /fp:fast /Zo /Z7"
 if "%3"=="debug" (
 	set "opt_options=/Zo /Z7 /Od /Oi /fp:fast"
+) else if "%3"=="time" (
+  set "should_time=1"
 ) else if "%3" neq "" (
-	echo Third argument must be either 'debug' or omitted
+	echo Third argument must be either 'debug', 'time' or omitted
 	goto end
 )
 
@@ -35,7 +38,11 @@ if "%4" neq "" (
 	goto end
 )
 
-if %day_num% lss 17 (
+set chosen_compiler=cl
+if %day_num% == 12 set chosen_compiler=clang
+if %day_num% geq 17 set chosen_compiler=clang
+
+if %chosen_compiler% == "cl" (
   cl /nologo %opt_options% /W3 day%day_num%.c /link /subsystem:console /opt:icf /opt:ref /incremental:no /pdb:day%day_num%.pdb /out:day%day_num%.exe
 ) else (
   set "warnings=-Wall -Wextra -Wshadow -Wconversion -Wnull-dereference -Wdouble-promotion -Wformat=2"
@@ -46,12 +53,19 @@ if %day_num% lss 17 (
 
   REM clang -target x86_64-pc-windows-msvc %debug% %warnings% %ignored_warnings% -std=gnu11 -o day%day_num%.exe day%day_num%.c
   
-  clang-cl /Zo /Z7 /Od /Oi %warnings% %ignored_warnings% day%day_num%.c /link /subsystem:console /opt:icf /opt:ref /incremental:no /pdb:day%day_num%.pdb /out:day%day_num%.exe
+  REM -lclang_rt.builtins-x86_64.lib
+  clang-cl %opt_options% %warnings% %ignored_warnings% day%day_num%.c /link /subsystem:console /opt:icf /opt:ref /incremental:no /pdb:day%day_num%.pdb /out:day%day_num%.exe
 )
 
 if %errorlevel% neq 0 goto end
+set "begin_time=%time%"
 day%day_num%.exe %input_file%
+set "end_time=%time%"
 if %errorlevel% neq 0 echo process returned %errorlevel%
+
+if %should_time%==1 (
+  echo %begin_time%
+)
 
 :end
 endlocal
