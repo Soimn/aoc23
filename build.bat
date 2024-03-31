@@ -58,13 +58,11 @@ if %chosen_compiler% == "cl" (
 )
 
 if %errorlevel% neq 0 goto end
-set "begin_time=%time%"
-day%day_num%.exe %input_file%
-set "end_time=%time%"
-if %errorlevel% neq 0 echo process returned %errorlevel%
 
 if %should_time%==1 (
-  echo %begin_time%
+  rtime day%day_num%.exe %input_file%
+) else (
+  day%day_num%.exe %input_file%
 )
 
 :end
