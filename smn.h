@@ -76,6 +76,10 @@ typedef double f64;
 #define CONCAT_(A, B) CONCAT__(A, B)
 #define CONCAT(A, B) CONCAT_(A, B)
 
+#define STRINGIFY__(S) #S
+#define STRINGIFY_(S) STRINGIFY__(S)
+#define STRINGIFY(S) STRINGIFY_(S)
+
 #define ALIGN_FORWARD(N, A) (((N) + ((A)-1)) & ~(typeof((N)+(A)))((A)-1))
 #define ALIGN_BACKWARD(N, A) ((N) & ~(typeof((N)+(A)))((A)-1))
 
@@ -87,7 +91,7 @@ typedef double f64;
 #define ASSERT(EX, ...)
 #endif
 
-void AssertHandler(char* file, uint line, char* func, char* expr, char* msg, ...);
+void __attribute__((format(printf, 5, 6))) AssertHandler(char* file, uint line, char* func, char* expr, char* msg, ...);
 
 #define NOT_IMPLEMENTED ASSERT(false, "NOT_IMPLEMENTED")
 
@@ -123,6 +127,8 @@ SMN_INLINE smm    String_FindFirstChar       (String s, u8 c);
 SMN_INLINE smm    String_FindLastChar        (String s, u8 c);
 SMN_INLINE umm    String_CopyToBuffer        (String s, u8* buffer, umm buffer_size);
 SMN_INLINE u64    String_FNV                 (String s);
+           String String_EatU64              (String s, uint base, u64* out, bool* did_overflow);
+SMN_INLINE int    String_Cmp                 (String a, String b);
 
 // -------------------------------------------------
 // SB - Stretchy Buffer
@@ -134,6 +140,10 @@ SMN_INLINE u64    String_FNV                 (String s);
 // void SB_OrderedRemove(SB(T)* sbuf, u32 index)
 // void SB_RemoveLast(SB(T)* sbuf)
 // void SB_Free(SB(T)* sbuf)
+// void SB_Clear(SB(T)* sbuf)
+// void SB_Reserve(SB(T)* sbuf, u32 min_cap)
+// void SB_QuickSort(SB(T)* sbuf, bool (*cmp_func)(void* a, void* b), bool reverse)
+// void SB_QuickSortT(SB(T)* sbuf, bool reverse)
 
 typedef struct SB__Header
 {
@@ -141,22 +151,23 @@ typedef struct SB__Header
   u32 cap;
 } SB__Header;
 
-void** SB__Reserve(void** sbuf, umm elem_size, u8 elem_align, umm new_len);
+void SB__Reserve  (void** sbuf, umm elem_size, u8 elem_align, umm new_cap);
+void SB__QuickSort(void* sbuf, u32 elem_size, u32 len, int (*cmp_func)(void* a, void* b), bool reverse, void* tmp);
 
 #define SB(T) T*
 
 #define SB__Header(S) ((SB__Header*)(*(S)) - 1)
 
-#define SB__EnsureDoublePointer(S) ({ if(*(S)) (void)**(S); })
+#define SB__EnsureDoublePointer(S) ({ if (*(S)) (void)**(S); })
 
 #define SB_Len(S) ({ SB__EnsureDoublePointer(S); (*(S) == 0 ? 0 : SB__Header(S)->len); })
 #define SB_Cap(S) ({ SB__EnsureDoublePointer(S); (*(S) == 0 ? 0 : SB__Header(S)->cap); })
 
-#define SB_Append(S, E) ({                                                 \
-    SB__EnsureDoublePointer(S);                                            \
-    SB__Reserve((void**)(S), sizeof(**(S)), __alignof(**(S)), SB_Len(S));  \
-    (*(S))[SB__Header(S)->len++] = (E);                                    \
-    (void)0;                                                               \
+#define SB_Append(S, E) ({                                                           \
+    SB__EnsureDoublePointer(S);                                                      \
+    SB__Reserve((void**)(S), sizeof(**(S)), __alignof(**(S)), SB_Len(S)+1);          \
+    (*(S))[SB__Header(S)->len++] = (E);                                              \
+    (void)0;                                                                         \
 })
 
 #define SB_Prepend(S, E) ({                                                          \
@@ -202,6 +213,49 @@ void** SB__Reserve(void** sbuf, umm elem_size, u8 elem_align, umm new_len);
     (void)0;                                \
 })
 
+#define SB_Clear(S) ({                      \
+    SB__EnsureDoublePointer(S);             \
+    if (*(S) != 0) SB__Header(S)->len = 0;  \
+    (void)0;                                \
+})
+
+#define SB_Reserve(S, C) ({                                         \
+    SB__EnsureDoublePointer(S);                                     \
+    SB__Reserve((void**)(S), sizeof(**(S)), __alignof(**(S)), (C)); \
+    (void)0;                                                        \
+})
+
+#define SB_QuickSort(S, C, R) ({                                                                                \
+    SB__EnsureDoublePointer(S);                                                                                 \
+    typeof(**(S)) SB__QuickSort_tmp;                                                                            \
+    if (*(S) != 0) SB__QuickSort((void*)*(S), sizeof(**(S)), SB__Header(S)->len, (C), (R), &SB__QuickSort_tmp); \
+    (void)0;                                                                                                    \
+})
+
+#define SB__QuickSortCmp_Impl(T, E) \
+  int SB__QuickSortCmp##T(void* _a, void* _b) { T a = *(T*)_a; T b = *(T*)_b; return (E); }
+
+SB__QuickSortCmp_Impl(s8,   (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(s16,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(s32,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(s64,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(u8,   (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(u16,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(u32,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(u64,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(smm,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(umm,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(f32,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(f64,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(int,  (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(uint, (a < b ? -1 : (a > b ? 1 : 0)))
+SB__QuickSortCmp_Impl(String, String_Cmp(a, b))
+
+#define SB_QuickSortT(S, T, R) ({            \
+    SB__EnsureDoublePointer(S);              \
+    SB_QuickSort(S, SB__QuickSortCmp##T, R); \
+})
+
 // -------------------------------------------------
 // SBMap - Stretchy buffer based hashmap
 // void SBMap_Create(SBMap(K, V)* map, u64 (*hash_func)(void*), bool (*match_func)(void* a, void* b),
@@ -225,6 +279,17 @@ typedef struct SBMap__Header
   u16 value_size;
   u32 entry_size;
 } SBMap__Header;
+
+#define SBMap(K, V) struct { u64 hash; K key; V value; }*
+
+#define SBMap__Header(M) ((SBMap__Header*)*(M)-1)
+#define SBMap__KeyType(M) typeof((*(M))->key)
+#define SBMap__ValueType(M) typeof((*(M))->value)
+
+#define SBMap__EmptyHash   (1ULL << 63)
+#define SBMap__IsOccupied(S) (!(*(S) >> 63))
+
+#define SBMap__MaxLoadPercent 69
 
 void SBMap__Create(void** map, u64 (*hash_func)(void*), bool (*match_func)(void* a, void* b),
                    u8 key_size, u8 value_offset, u16 value_size);
@@ -253,17 +318,6 @@ SBMap__HashMatchImpl(umm,  String_FNV((String){ .data = (u8*)&key, .size = sizeo
 SBMap__HashMatchImpl(bool, String_FNV((String){ .data = (u8*)&key, .size = sizeof(key) }), !!a == !!b)
 SBMap__HashMatchImpl(String, String_FNV(key), String_Match(a, b))
 
-#define SBMap(K, V) struct { u64 hash; K key; V value; }*
-
-#define SBMap__MaxLoadPercent 69
-
-#define SBMap__Header(M) ((SBMap__Header*)*(M)-1)
-#define SBMap__KeyType(M) typeof((*(M))->key)
-#define SBMap__ValueType(M) typeof((*(M))->value)
-
-#define SBMap__EmptyHash   (1ULL << 63)
-#define SBMap__IsOccupied(S) (!(*(S) >> 63))
-
 #define SBMap_Create(M, H, C) ({                                                            \
     (void)**(M);                                                                            \
     ASSERT(__alignof(typeof((*(M))->key)) <= 8 && __alignof(typeof((*(M))->key)) <= 8,      \
@@ -276,8 +330,7 @@ SBMap__HashMatchImpl(String, String_FNV(key), String_Match(a, b))
 
 #define SBMap_CreateT(M, T) SBMap_Create(M, CONCAT(SBMap__Hash, T), CONCAT(SBMap__Match, T))
 
-// TODO:
-#define SBMap_Destroy(M) ({ (void)**(M); })
+#define SBMap_Destroy(M) ({ (void)**(M); free(SBMap__Header(M)); *(M) = 0; (void)0; })
 
 #define SBMap_Get(M, K, V) ({                                 \
     (void)**(M);                                              \
@@ -311,6 +364,32 @@ SBMap__HashMatchImpl(String, String_FNV(key), String_Match(a, b))
     (void)**(M);             \
     SBMap__Clr((void**)(M)); \
 })
+
+typedef union V2S
+{
+  struct { s32 x, y; };
+  s32 e[2];
+} V2S;
+
+#define V2S(X, Y) (V2S){ .x = (X), .y = (Y) }
+
+V2S
+V2S_Add(V2S v0, V2S v1)
+{
+  return V2S(v0.x + v1.x, v0.y + v1.y);
+}
+
+V2S
+V2S_Sub(V2S v0, V2S v1)
+{
+  return V2S(v0.x - v1.x, v0.y - v1.y);
+}
+
+V2S
+V2S_Neg(V2S v)
+{
+  return V2S(-v.x, -v.y);
+}
 
 #ifdef SMN_IMPLEMENTATION
 
@@ -553,7 +632,7 @@ String_FNV(String s)
   return hash;
 }
 
-SMN_INLINE String
+String
 String_EatU64(String s, uint base, u64* out, bool* did_overflow)
 {
   ASSERT(base >= 2 && base <= 10 || base == 16);
@@ -601,7 +680,22 @@ String_EatU64(String s, uint base, u64* out, bool* did_overflow)
   return String_EatN(s, i);
 }
 
-void**
+SMN_INLINE int
+String_Cmp(String a, String b)
+{
+  int result = 0;
+
+  for (umm i = 0; i < MIN(a.size, b.size) && result == 0; ++i)
+  {
+    result = (int)a.data[i] - (int)b.data[i];
+  }
+
+  if (result == 0) result = (int)(a.size - b.size);
+
+  return result;
+}
+
+void
 SB__Reserve(void** sbuf, umm elem_size, u8 elem_align, umm min_cap)
 {
   ASSERT(sizeof(SB__Header) % 8 == 0);
@@ -626,8 +720,34 @@ SB__Reserve(void** sbuf, umm elem_size, u8 elem_align, umm min_cap)
     *sbuf = (u8*)realloc((u8*)*sbuf - sizeof(SB__Header), sizeof(SB__Header) + new_cap*elem_size) + sizeof(SB__Header);
     SB__Header(sbuf)->cap = (u32)new_cap;
   }
+}
 
-  return sbuf;
+void
+SB__QuickSort(void* sbuf, u32 elem_size, u32 len, int (*cmp_func)(void* a, void* b), bool reverse, void* tmp)
+{
+  if (len <= 1) return;
+
+  void* pivot = sbuf + (len-1)*elem_size;
+
+  u32 j = 0;
+  for (u32 i = 0; i < len; ++i)
+  {
+    void* i_elem = sbuf + i*elem_size;
+
+    if ((cmp_func(i_elem, pivot)^(reverse ? -1 : 0)) <= 0)
+    {
+      void* j_elem = sbuf + j*elem_size;
+
+      memcpy(tmp, j_elem, elem_size);
+      memcpy(j_elem, i_elem, elem_size);
+      memcpy(i_elem, tmp, elem_size);
+
+      j += 1;
+    }
+  }
+
+  SB__QuickSort(sbuf, elem_size, j-1, cmp_func, reverse, tmp);
+  SB__QuickSort(sbuf + j*elem_size, elem_size, len - j, cmp_func, reverse, tmp);
 }
 
 inline u64
