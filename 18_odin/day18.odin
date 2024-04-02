@@ -9,18 +9,18 @@ Input     :: string(#load("input.txt"));
 
 Crossing_Kind :: enum
 {
-  Crossing_None,
-  Crossing_I,
-  Crossing_L,
-  Crossing_F,
-  Crossing_J,
-  Crossing_7,
+  None,
+  I,
+  L,
+  F,
+  J,
+  T,
 }
 
 DirToCrossingKind := [3][3]Crossing_Kind{
-  {.Crossing_J,    .Crossing_None, .Crossing_L   },
-  {.Crossing_None, .Crossing_None, .Crossing_None},
-  {.Crossing_7,    .Crossing_None, .Crossing_F   },
+  {.J,    .None, .L   },
+  {.None, .None, .None},
+  {.T,    .None, .F   },
 }
 
 Crossing :: struct
@@ -72,30 +72,17 @@ main :: proc()
         kind: Crossing_Kind;
         if      j == 0       do kind = DirToCrossingKind[dir.y+1][prev_dir.x+1];
         else if j == steps-1 do kind = DirToCrossingKind[dir.y+1][next_dir.x+1];
-        else                 do kind = .Crossing_I;
+        else                 do kind = .I;
 
         if pos.y not_in crossings do crossings[pos.y] = make([dynamic]Crossing);
 
-        append(&crossings[pos.y], Crossing{ x = pos.x, color = color });
+        append(&crossings[pos.y], Crossing{ x = pos.x, color = color, kind = kind });
       }
     }
   }
 
   for y in crossings
   {
-    prev_kind: Crossing_Kind.Crossing_None;
-    prev := -1;
-    for cross in crossings[y]
-    {
-      if prev_kind == .Crossing_None:
-      else
-      {
-        prev_kind = Crossing_Node;
-        prev      = crossing.x;
-      }
-    }
-
-    assert(prev == -1);
   }
 }
 
