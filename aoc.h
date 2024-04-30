@@ -64,10 +64,13 @@ String_Match(String s0, String s1)
   return result;
 }
 
-#define ASSERT(EX) ((EX) ? 1 : (__debugbreak(), *(volatile int*)0 = 0))
+#define ASSERT(EX) ((EX) ? 1 : (fprintf(stderr, "ASSERTION FAILED ON LINE %d", __LINE__), __debugbreak(), *(volatile int*)0 = 0))
 #define NOT_IMPLEMENTED ASSERT(!"NOT_IMPLEMENTED")
 
 #define ARRAY_SIZE(A) (sizeof(A)/sizeof(0[A]))
+
+#define MIN(A, B) ((A) < (B) ? (A) : (B))
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 void*
 Align(void* ptr, u8 alignment)

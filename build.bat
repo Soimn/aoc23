@@ -41,6 +41,7 @@ if "%4" neq "" (
 set chosen_compiler=cl
 if %day_num% == 12 set chosen_compiler=clang
 if %day_num% geq 17 set chosen_compiler=clang
+if %day_num% geq 19 set chosen_compiler=cl
 
 if %chosen_compiler% == "cl" (
   cl /nologo %opt_options% /W3 day%day_num%.c /link /subsystem:console /opt:icf /opt:ref /incremental:no /pdb:day%day_num%.pdb /out:day%day_num%.exe
