@@ -1,7 +1,5 @@
 #include "../aoc.h"
 
-#include <string.h>
-
 enum
 {
 	NodeKind_None = 0,
@@ -11,21 +9,21 @@ enum
 
 typedef struct Node
 {
-	u16 connections[8];
-	u8 connections_len;
+	String name;
 	u8 kind;
-	union
-	{
-		u8 state[8];
-		u64 state_u64;
-	};
+	u8 connections_len;
+	u8 connections[8];
+	u8 sources_len;
+	u8 sources[16];
+	u8 state[16];
 } Node;
 
-typedef struct Node_Mapping
+typedef struct Signal
 {
-	u16 id;
-	u16 idx;
-} Node_Mapping;
+	u8 src;
+	u8 dst;
+	u8 val;
+} Signal;
 
 int
 main(int argc, char** argv)
@@ -34,191 +32,205 @@ main(int argc, char** argv)
 	if (!ReadInput(argc, argv, &input)) return -1;
 
 	Node nodes[256] = {0};
-	uint nodes_len  = 0;
+	uint nodes_len = 0;
 
-	Node_Mapping mappings[256] = {0};
-	uint mappings_len          = 0;
-
-	for (umm i = 0; i < input.size;)
 	{
-		ASSERT(nodes_len < ARRAY_SIZE(nodes));
-		ASSERT(mappings_len < ARRAY_SIZE(mappings));
-		Node* node            = &nodes[nodes_len++];
-		Node_Mapping* mapping = &mappings[mappings_len++];
-
-		*node = (Node){0};
-
-		mapping->idx = nodes_len-1;
-
-		if      (input.data[i] == '%') node->kind = NodeKind_FlipFlop;
-		else if (input.data[i] == '&') node->kind = NodeKind_Conjunction;
-
-		if (node->kind != NodeKind_None)
+		umm i = 0;
+		while (i < input.size)
 		{
-			i += 1; // NOTE: skip kind prefix
-		
-			ASSERT(i < input.size);
-			while (i < input.size && (u8)(input.data[i]-'a') < (u8)26)
-			{
-				mapping->id *= 26;
-				mapping->id += input.data[i]-'a';
-				i += 1;
-			}
-		}
-		else
-		{
-			ASSERT(i + sizeof("broadcaster")-1 < input.size && input.data[i + sizeof("broadcaster")-1] == ' ');
-			ASSERT(strncmp((char*)(input.data + i), "broadcaster", sizeof("broadcaster")-1) == 0);
+			ASSERT(nodes_len < ARRAY_SIZE(nodes));
+			Node* node = &nodes[nodes_len++];
 
-			mapping->id = 0;
+			node->kind = NodeKind_None;
+			if      (input.data[i] == '%') node->kind = NodeKind_FlipFlop;
+			else if (input.data[i] == '&') node->kind = NodeKind_Conjunction;
 
-			i += sizeof("broadcaster")-1;
-		}
+			if (node->kind != NodeKind_None) i += 1;
 
-		ASSERT(i + sizeof(" -> ")-1 < input.size && strncmp((char*)(input.data + i), " -> ", sizeof(" -> ")-1) == 0);
-		i += sizeof(" -> ")-1;
+			node->name.data = &input.data[i];
+			while (i < input.size && input.data[i] != ' ') i += 1;
+			node->name.size = &input.data[i] - node->name.data;
 
-		for (;;)
-		{
-			ASSERT(i < input.size);
-
-			u16 id = 0;
-			while (i < input.size && (u8)(input.data[i]-'a') < (u8)26)
-			{
-				id *= 26;
-				id += input.data[i]-'a';
-				i += 1;
-			}
-
-			node->connections[node->connections_len++] = id;
-
-			ASSERT(i+1 < input.size);
-			if (input.data[i] == ',')
-			{
-				ASSERT(input.data[i+1] == ' ');
-				i += sizeof(", ")-1;
-				continue;
-			}
-			else
-			{
-				ASSERT(input.data[i] == '\r' && input.data[i+1] == '\n');
-				i += sizeof("\r\n")-1;
-				break;
-			}
+			while (i < input.size && input.data[i] != '\n') i += 1;
+			i += 1;
 		}
 	}
 
-	for (uint i = 0; i < nodes_len; ++i)
 	{
-		Node* node = &nodes[i];
-		for (uint j = 0; j < node->connections_len; ++j)
+		umm i = 0;
+		umm j = 0;
+		while (i < input.size)
 		{
-			u16 id = node->connections[j];
+			Node* node = &nodes[j++];
 
-			sint idx = -1;
-			for (uint k = 0; k < mappings_len; ++k)
+			if (node->kind != NodeKind_None) i += 1;
+			i += node->name.size;
+
+			ASSERT(i+3 < input.size && input.data[i] == ' ' && input.data[i+1] == '-' && input.data[i+2] == '>' && input.data[i+3] == ' ');
+			i += 4;
+
+			node->connections_len = 0;
+			for (;;)
 			{
-				if (mappings[k].id == id)
+				ASSERT(i < input.size);
+				String name;
+				name.data = &input.data[i];
+				while (i < input.size && input.data[i] != ',' && input.data[i] != '\r') i += 1;
+				name.size = &input.data[i] - name.data;
+
+				sint idx = -1;
+
+				if (String_Match(name, STRING("rx"))) idx = 0xFE;
+				else
 				{
-					idx = (sint)mappings[k].idx;
+					for (uint k = 0; k < nodes_len; ++k)
+					{
+						if (String_Match(nodes[k].name, name))
+						{
+							idx = (sint)k;
+							break;
+						}
+					}
+				}
+
+				node->connections[node->connections_len++] = (u8)idx;
+
+				ASSERT(nodes[idx].sources_len < ARRAY_SIZE(nodes[idx].sources));
+				nodes[idx].sources[nodes[idx].sources_len++] = j-1;
+
+				if (i < input.size && input.data[i] == ',')
+				{
+					i += sizeof(", ")-1;
+					continue;
+				}
+				else
+				{
+					i += sizeof("\r\n")-1;
 					break;
 				}
 			}
-
-			ASSERT(idx != -1 && idx < U16_MAX);
-
-			node->connections[j] = (u16)idx;
 		}
 	}
 
-	typedef struct Signal
-	{
-		u16 src;
-		u16 dst;
-		u8 val;
-	} Signal;
+	uint lo_signals[1001] = {0};
+	uint hi_signals[1001] = {0};
 
-	Signal signals[ARRAY_SIZE(nodes)*ARRAY_SIZE(nodes[0].connections)];
-	uint signals_head = 0;
-	uint signals_tail = 0;
+	uint broadcaster_node = 0;
+	while (broadcaster_node < nodes_len && !String_Match(nodes[broadcaster_node].name, STRING("broadcaster"))) broadcaster_node += 1;
+	ASSERT(broadcaster_node < nodes_len);
 
-	uint lo_pulse_count = 0;
-	uint hi_pulse_count = 0;
-	for (;;)
+	uint k = 0;
+	uint cycle_len = 0;
+	sint part2_result = -1;
+	while (k < 1000 || part2_result == -1)
 	{
-		for (uint i = 0; i < nodes[0].connections_len; ++i)
+		k += 1;
+		if (k % 10000000 == 0)
 		{
-			signals[signals_head] = (Signal){ .src = 0, .dst = nodes[0].connections[i], .val = 0 };
-			signals_head = (signals_head+1) % ARRAY_SIZE(signals);
+			fprintf(stderr, "%llu\n", k);
 		}
 
-		lo_pulse_count += nodes[0].connections_len;
+		if (k < 1000) cycle_len += 1;
+
+		Signal signals[ARRAY_SIZE(nodes)*ARRAY_SIZE(nodes[0].connections)];
+		uint signals_head = 0;
+		uint signals_tail = 0;
+
+		for (uint i = 0; i < nodes[broadcaster_node].connections_len; ++i)
+		{
+			if (nodes[broadcaster_node].connections[i] >= 0xFE) continue;
+			signals[signals_head] = (Signal){ .src = broadcaster_node, .dst = nodes[broadcaster_node].connections[i], .val = 0 };
+			signals_head = (signals_head+1) % ARRAY_SIZE(signals);
+			ASSERT(signals_head != signals_tail);
+		}
+
+		if (cycle_len <= 1000)
+		{
+			lo_signals[cycle_len] = lo_signals[cycle_len-1] + nodes[broadcaster_node].connections_len + 1;
+			hi_signals[cycle_len] = hi_signals[cycle_len-1];
+		}
 
 		while (signals_tail != signals_head)
 		{
-			Signal signal = signals[signals_tail];
+			Signal sig = signals[signals_tail];
 			signals_tail = (signals_tail+1) % ARRAY_SIZE(signals);
 
-			Node* dst_node = &nodes[signal.dst];
+			Node* dst_node = &nodes[sig.dst];
 
-			bool should_send_signal = false;
-			u16 signal_val          = 0;
+			bool should_send_signal_out = false;
+			u8 out_val                  = 0;
 
 			if (dst_node->kind == NodeKind_FlipFlop)
 			{
-				if (signal.val == 0)
+				if (sig.val == 0)
 				{
 					dst_node->state[0] = !dst_node->state[0];
 
-					should_send_signal = true;
-					signal_val         = dst_node->state[0];
+					should_send_signal_out = true;
+					out_val = dst_node->state[0];
 				}
 			}
 			else if (dst_node->kind == NodeKind_Conjunction)
 			{
-				u16 val = 1;
-				for (uint j = 0; j < dst_node->connections_len; ++j)
+				u8 val = 1;
+				for (uint i = 0; i < dst_node->sources_len; ++i)
 				{
-					if (dst_node->connections[j] == signal.src)
+					if (dst_node->sources[i] == sig.src)
 					{
-						dst_node->state[j] = signal.val;
+						dst_node->state[i] = sig.val;
 					}
 
-					val &= dst_node->state[j];
+					val &= dst_node->state[i];
 				}
 
-				should_send_signal = true;
-				signal_val         = val;
+				should_send_signal_out = true;
+				out_val                = !val;
 			}
 
-			if (should_send_signal)
+			if (should_send_signal_out)
 			{
-				for (uint j = 0; j < dst_node->connections_len; ++j)
+				for (uint i = 0; i < dst_node->connections_len; ++i)
 				{
-					signals[signals_head] = (Signal){ .src = signal.dst, .dst = dst_node->connections[j], .val = signal_val };
+					if (out_val == 0 && dst_node->connections[i] == 0xFE && part2_result == -1) part2_result = (sint)k;
+
+					if (dst_node->connections[i] >= 0xFE) continue;
+
+					Signal out_signal = (Signal){ .src = sig.dst, .dst = dst_node->connections[i], .val = out_val };
+
+					signals[signals_head] = out_signal;
 					signals_head = (signals_head+1) % ARRAY_SIZE(signals);
 					ASSERT(signals_head != signals_tail);
 				}
 
-				if (signal_val == 0) lo_pulse_count += dst_node->connections_len;
-				else                 hi_pulse_count += dst_node->connections_len;
+				if (cycle_len < 1000)
+				{
+					if (out_val == 0) lo_signals[cycle_len] += dst_node->connections_len;
+					else              hi_signals[cycle_len] += dst_node->connections_len;
+				}
 			}
 		}
 
 		bool is_in_init_state = true;
 		for (uint i = 0; i < nodes_len && is_in_init_state; ++i)
 		{
-			is_in_init_state = (nodes[i].state_u64 == 0);
+			for (uint j = 0; j < ARRAY_SIZE(nodes[i].state); ++j)
+			{
+				is_in_init_state = (is_in_init_state && nodes[i].state[j] == 0);
+			}
 		}
 
 		if (is_in_init_state) break;
 		else                  continue;
 	}
 
-	printf("%llu, %llu\n", lo_pulse_count, hi_pulse_count);
+	uint whole_cycles = 1000/cycle_len;
+	uint remainder    = 1000%cycle_len;
 
-	uint part1_result = lo_pulse_count*hi_pulse_count*1000;
-	printf("Part 1: %llu\n", part1_result);
+	uint total_lo_signals = lo_signals[cycle_len]*whole_cycles + lo_signals[remainder];
+	uint total_hi_signals = hi_signals[cycle_len]*whole_cycles + hi_signals[remainder];
+
+	printf("Part 1: %llu\n", total_lo_signals*total_hi_signals);
+	printf("Part 2: %llu\n", part2_result);
 
 	return 0;
 }
