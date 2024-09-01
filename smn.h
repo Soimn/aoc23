@@ -25,13 +25,13 @@ typedef signed __int128 s128;
 #define S8_MIN  (0x80)
 #define S16_MIN (0x8000)
 #define S32_MIN (0x80000000)
-#define S64_MIN (0x8000000000000000DLL)
+#define S64_MIN (0x8000000000000000LL)
 #define S128_MIN ((s128)((~(u128)0 >> 1) + 1)
 
 #define S8_MAX  (0x7F)
 #define S16_MAX (0x7FFF)
 #define S32_MAX (0x7FFFFFFF)
-#define S64_MAX (0x7FFFFFFFFFFFFFFFDLL)
+#define S64_MAX (0x7FFFFFFFFFFFFFFFLL)
 #define S128_MAX ((s128)(~(u128)0 >> 1))
 
 typedef unsigned __int8   u8;
